@@ -1,0 +1,16 @@
+---
+title: "XAI3"
+author: "Bernat Pertegaz, Lucía Fuentes, Miguel Camuñas"
+date: "2026-05-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+```
+
+HOLA
