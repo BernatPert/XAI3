@@ -9,8 +9,41 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
 ```{r}
-x = 1
+day <- read.csv("Bike-Sharing-Dataset/day.csv")
+
+day1 <- day[,c(6,8)]
+
+day1$winter <- as.numeric(day$season == 1)
+day1$spring <- as.numeric(day$season == 2)
+day1$summer <- as.numeric(day$season == 3)
+#Si las 3 son 0 -> season es fall
+
+day1$misty <- as.numeric(day$weathersit == 2)
+day1$rain <- as.numeric(day$weathersit == 3 | day$weathersit == 4)
+day1$temp <- day$temp * 47 -8
+day1$hum <- day$hum *100
+day1$windspeed <- day$windspeed * 67
+day1$days_since_2011 <- 1:731
+day1$cnt <- day$cnt
+
+#hay que escalar también las binarias (según el profesor de las prácticas)
+day2 <- day1
+day2$holiday <- scale(day1$holiday)
+day2$workingday <- scale(day1$workingday)
+day2$winter <- scale(day1$winter)
+day2$spring <- scale(day1$spring)
+day2$summer <- scale(day1$summer)
+day2$misty <- scale(day1$misty)
+day2$rain <- scale(day1$rain)
+day2$temp <- scale(day1$temp)
+day2$hum <- scale(day1$hum)
+day2$windspeed <- scale(day1$windspeed)
+day2$days_since_2011 <- scale(day1$days_since_2011)
+modelo1 <- lm(cnt ~ holiday + workingday + winter + spring + summer + misty + rain
+             + temp + hum + windspeed + days_since_2011, data = day2)
+summary(modelo1)
 ```
 
-HOLA
+
