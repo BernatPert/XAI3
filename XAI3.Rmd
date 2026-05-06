@@ -7,9 +7,13 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+library(ggplot2)
+library(pdp)
+library(dplyr)
 ```
 
-
+1- One dimensional PDP
 ```{r}
 day <- read.csv("Bike-Sharing-Dataset/day.csv")
 
@@ -28,22 +32,52 @@ day1$windspeed <- day$windspeed * 67
 day1$days_since_2011 <- 1:731
 day1$cnt <- day$cnt
 
-#hay que escalar también las binarias (según el profesor de las prácticas)
-day2 <- day1
-day2$holiday <- scale(day1$holiday)
-day2$workingday <- scale(day1$workingday)
-day2$winter <- scale(day1$winter)
-day2$spring <- scale(day1$spring)
-day2$summer <- scale(day1$summer)
-day2$misty <- scale(day1$misty)
-day2$rain <- scale(day1$rain)
-day2$temp <- scale(day1$temp)
-day2$hum <- scale(day1$hum)
-day2$windspeed <- scale(day1$windspeed)
-day2$days_since_2011 <- scale(day1$days_since_2011)
-modelo1 <- lm(cnt ~ holiday + workingday + winter + spring + summer + misty + rain
-             + temp + hum + windspeed + days_since_2011, data = day2)
-summary(modelo1)
 ```
 
+Random Forest
+```{r}
+x <- day1[,-12]
+y <- day1$cnt
 
+set.seed(123)
+modelo_rf <- randomForest(
+  x = x,
+  y = y,
+  ntree = 100,
+  mtry = 2,
+  importance = TRUE
+)
+```
+
+Partial Dependence Plots
+```{r}
+features <- c("days_since_2011", "temp", "hum", "windspeed")
+
+for (feature in features) {
+  # Calcular PDP
+  pdp_result <- partial(
+    modelo_rf,
+    pred.var = feature,
+    grid.resolution = 50,
+    train = x  # tus datos de entrenamiento
+  )
+  
+  # Graficar
+  plot_pdp <- autoplot(pdp_result, smooth = FALSE) +
+    ggtitle(paste("PDP -", feature)) +
+    ylim(0, max(pdp_result$yhat)*1.1) +
+    theme_minimal()
+  
+  print(plot_pdp)
+}
+```
+
+A medida que aumenta la variable days_since_2011 aumenta el valor predicho,
+aunque al final baja un poco
+A medida que aumenta temp aumenta el valor predicho, aunque cuando el calor es extremo
+deja de aumentar e incluso se reduce ligeramente
+Con humedades entre 0 y 60 se mantiene estable, pero cuando se va acercando a 100 la humedad, el valor
+predicho se reduce
+La velocidad del aire parece afectar un poco menos al valor predicho, aunque con una pequeña tendencia negativa.
+
+2- 
