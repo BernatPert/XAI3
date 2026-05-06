@@ -11,6 +11,7 @@ library(randomForest)
 library(ggplot2)
 library(pdp)
 library(dplyr)
+library(ggExtra)
 ```
 
 1- One dimensional PDP
@@ -80,4 +81,56 @@ Con humedades entre 0 y 60 se mantiene estable, pero cuando se va acercando a 10
 predicho se reduce
 La velocidad del aire parece afectar un poco menos al valor predicho, aunque con una pequeña tendencia negativa.
 
-2- 
+2- Bidimensional Partial Dependency Plot
+
+```{r}
+set.seed(123)
+indices <- sample(1:731, size = 50, replace = FALSE)
+muestra <- day1[indices,]
+pdp_2d <- partial(
+  modelo_rf,
+  pred.var = c("temp", "hum"),
+  grid.resolution = 50,
+  train = x,
+  progress = "text"
+)
+
+pdp_df <- as.data.frame(pdp_2d)
+colnames(pdp_df) <- c("temp", "hum", "pred_cnt")
+
+plot_2d <- ggplot(pdp_df, aes(x = temp, y = hum, fill = pred_cnt)) +
+  geom_tile(width = 0.98, height = 0.98) +  # width y height para evitar huecos
+  scale_fill_gradient2(
+    low = "blue", 
+    mid = "white", 
+    high = "red",
+    midpoint = median(pdp_df$pred_cnt),
+    name = "Predicción\nbicicletas"
+  ) +
+  labs(
+    title = "PDP Bidimensional: Efecto de Temperatura y Humedad",
+    subtitle = "en la predicción de alquiler de bicicletas",
+    x = "Temperatura",
+    y = "Humedad"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle = element_text(hjust = 0.5, size = 10),
+    legend.position = "right"
+  )
+
+# 6. AÑADIR DENSIDAD DE LOS DATOS (como en las diapositivas)
+plot_final <- ggMarginal(
+  plot_2d,
+  type = "density",     # densidad (también puedes usar "histogram")
+  margins = "both",     # densidad en X e Y
+  size = 5,             # tamaño de los gráficos marginales
+  fill = "lightgray",
+  alpha = 0.6
+)
+
+# 7. MOSTRAR EL GRÁFICO
+print(plot_final)
+```
+
