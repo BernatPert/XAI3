@@ -67,70 +67,142 @@ for (feature in features) {
   plot_pdp <- autoplot(pdp_result, smooth = FALSE) +
     ggtitle(paste("PDP -", feature)) +
     ylim(0, max(pdp_result$yhat)*1.1) +
+    labs(y = "Bikes Rented") +
     theme_minimal()
   
   print(plot_pdp)
 }
 ```
 
-A medida que aumenta la variable days_since_2011 aumenta el valor predicho,
-aunque al final baja un poco
-A medida que aumenta temp aumenta el valor predicho, aunque cuando el calor es extremo
-deja de aumentar e incluso se reduce ligeramente
-Con humedades entre 0 y 60 se mantiene estable, pero cuando se va acercando a 100 la humedad, el valor
-predicho se reduce
-La velocidad del aire parece afectar un poco menos al valor predicho, aunque con una pequeña tendencia negativa.
 
 2- Bidimensional Partial Dependency Plot
 
 ```{r}
+# Random sample (to reduce computational cost)
 set.seed(123)
-indices <- sample(1:731, size = 50, replace = FALSE)
-muestra <- day1[indices,]
+indices <- sample(1:nrow(day1), size = 50, replace = FALSE)
+muestra <- day1[indices, ]
+
+
 pdp_2d <- partial(
   modelo_rf,
   pred.var = c("temp", "hum"),
-  grid.resolution = 50,
-  train = x,
+  grid.resolution = 20,        
+  train = muestra,           
   progress = "text"
 )
 
 pdp_df <- as.data.frame(pdp_2d)
 colnames(pdp_df) <- c("temp", "hum", "pred_cnt")
 
+# Calculate height and width to avoid blank spaces
+step_temp <- diff(sort(unique(pdp_df$temp)))[1]
+step_hum  <- diff(sort(unique(pdp_df$hum)))[1]
+
+# BASE GRAPH 2D
 plot_2d <- ggplot(pdp_df, aes(x = temp, y = hum, fill = pred_cnt)) +
-  geom_tile(width = 0.98, height = 0.98) +  # width y height para evitar huecos
+  geom_tile(width  = step_temp * 1.01,
+            height = step_hum  * 1.01) +
+  
+  geom_point(
+    data        = muestra,                        
+    aes(x = temp, y = hum),
+    inherit.aes = FALSE,
+    alpha       = 0,                              
+    size        = 0
+  ) +
+  
   scale_fill_gradient2(
-    low = "blue", 
-    mid = "white", 
-    high = "red",
+    low      = "blue",
+    mid      = "white",
+    high     = "red",
     midpoint = median(pdp_df$pred_cnt),
-    name = "Predicción\nbicicletas"
+    name     = "BIKE RENTAL"
   ) +
   labs(
-    title = "PDP Bidimensional: Efecto de Temperatura y Humedad",
-    subtitle = "en la predicción de alquiler de bicicletas",
-    x = "Temperatura",
-    y = "Humedad"
+    title    = "Bidimensional PDP: Temperature and Humidity",
+    x        = "Temperature",
+    y        = "Humidity"
   ) +
   theme_minimal() +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold", size = 14),
-    plot.subtitle = element_text(hjust = 0.5, size = 10),
+    plot.title      = element_text(hjust = 0.5, face = "bold", size = 14),
+    plot.subtitle   = element_text(hjust = 0.5, size = 10),
     legend.position = "right"
   )
 
-# 6. AÑADIR DENSIDAD DE LOS DATOS (como en las diapositivas)
+# Density 
 plot_final <- ggMarginal(
   plot_2d,
-  type = "density",     # densidad (también puedes usar "histogram")
-  margins = "both",     # densidad en X e Y
-  size = 5,             # tamaño de los gráficos marginales
-  fill = "lightgray",
-  alpha = 0.6
+  type    = "density",
+  margins = "both",
+  size    = 5,
+  fill    = "lightgray",
+  colour  = "gray40",
+  alpha   = 0.6
 )
 
-# 7. MOSTRAR EL GRÁFICO
 print(plot_final)
+```
+
+
+3-  PDP to explain the price of a house
+
+```{r, warning=FALSE}
+library(readxl)
+kc_house_data <- read_excel("kc_house_data.xlsx")
+datos3 <- kc_house_data[,c("bedrooms","bathrooms","sqft_living","sqft_lot","floors","yr_built","price")]
+
+#Some rows have absurd values in the price, bathrooms and floors columns, they will be removed
+datos3 <- datos3[!as.numeric(datos3$bathrooms) >1000 ,]
+datos3 <- datos3[!as.numeric(datos3$floors) >1000 ,]
+datos3$price <- as.numeric(datos3$price)
+datos3 <- datos3[!datos3$price > 1000000000 ,]
+
+#The bathrooms column also has some decimal values, so they will be rounded to the closest integer
+datos3$bathrooms <- round(as.numeric(datos3$bathrooms), digits = 0)
+
+#The number of observations will be reduced due to high computational cost
+set.seed(123)
+indices <- sample(1:nrow(datos3), size = 1500, replace = FALSE)
+muestra <- datos3[indices, ]
+```
+
+
+```{r}
+x <- muestra[,-7]
+y <- muestra$price
+
+set.seed(123)
+modelo_rf <- randomForest(
+  x = x,
+  y = y,
+  ntree = 100,
+  mtry = 2,
+  importance = TRUE
+)
+```
+
+```{r}
+features <- c("bedrooms", "bathrooms", "sqft_living", "floors")
+
+for (feature in features) {
+  # Calculation
+  pdp_result <- partial(
+    modelo_rf,
+    pred.var = feature,
+    grid.resolution = 50,
+    train = x  
+  )
+  
+  # Grafic
+  plot_pdp <- autoplot(pdp_result, smooth = FALSE) +
+    ggtitle(paste("PDP -", feature)) +
+    ylim(0, max(pdp_result$yhat)*1.1) +
+    labs(y = "Price") +
+    theme_minimal()
+  
+  print(plot_pdp)
+}
 ```
 
